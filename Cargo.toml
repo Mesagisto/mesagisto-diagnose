@@ -1,0 +1,20 @@
+[package]
+name = "mesagisto-diagnose"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+mesagisto-client = { git = "https://github.com/MeowCat-Studio/mesagisto-client-rs.git", rev = "cfe7a4" }
+base64-url = "1.4.10"
+either = "1.6.1"
+singleton = { git = "https://github.com/Itsusinn/singleton-rs.git", rev = "bee321c" }
+tokio = { version =  "1.12.0", features = ["rt-multi-thread", "macros","signal"] }
+async-std = "1.10.0"
+anyhow = "1.0.51"
+futures-util = "0.3.18"
+arcstr = "1.1.1"
+env_logger = "0.9.0"
+log = "0.4.14"
+nats = "0.16.0"
