@@ -14,8 +14,7 @@ use mesagisto_client::server::SERVER;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
 
-  std::env::set_var("RUST_BACKTRACE", "1");
-  std::backtrace::Backtrace::force_capture();
+  std::env::set_var("RUST_BACKTRACE", "full");
   env_logger::builder()
     .write_style(env_logger::WriteStyle::Auto)
     .filter(None, log::LevelFilter::Error)
@@ -101,7 +100,7 @@ async fn main() -> anyhow::Result<()> {
     reply: None,
   };
   let packet = Packet::from(message.tl())?;
-  SERVER.send_and_receive(0,channel_addr.clone(), packet, receive_from_server).await?;
+  SERVER.send_and_receive(vec![],channel_addr.clone(), packet, receive_from_server).await?;
 
   loop {
     next_line(&mut line).await?;
@@ -122,7 +121,7 @@ async fn main() -> anyhow::Result<()> {
     };
     let packet = Packet::from(message.tl())?;
     info!("发送消息: {}", line);
-    SERVER.send_and_receive(0,channel_addr.clone(), packet, receive_from_server).await?;
+    SERVER.send_and_receive(vec![],channel_addr.clone(), packet, receive_from_server).await?;
   }
 }
 
@@ -132,7 +131,7 @@ async fn next_line(buf: &mut String) -> async_std::io::Result<usize> {
   buf.remove(buf.len() - 1);
   r
 }
-pub async fn receive_from_server(message: nats::asynk::Message, _: i64) -> anyhow::Result<()> {
+pub async fn receive_from_server(message: nats::asynk::Message, _: Vec<u8>) -> anyhow::Result<()> {
   let packet = Packet::from_cbor(&message.data)?;
   match packet {
     either::Left(msg) => {
