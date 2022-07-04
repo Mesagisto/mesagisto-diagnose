@@ -8,7 +8,7 @@ use mesagisto_client::data::{message, Packet};
 use mesagisto_client::server::SERVER;
 use mesagisto_client::{EitherExt, MesagistoConfig};
 use tokio::io::{BufReader, AsyncBufReadExt};
-use tracing::{info, trace, warn, Level};
+use tracing::{info, Level};
 use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -40,19 +40,18 @@ async fn run() -> anyhow::Result<()> {
   info!("信使诊断工具启动中...");
   info!("注: 有默认项时可按下Enter使用默认项.");
   let mut line = String::new();
-  let cipher_key: String;
 
   info!("请输入加密密钥");
   next_line(&mut line).await?;
-  cipher_key = line.to_string();
+  let cipher_key = line.to_string();
   info!("请输入服务器地址, 默认 nats://nats.mesagisto.org:4222");
-  let server_addr: String;
+
   next_line(&mut line).await?;
-  if line.to_lowercase() == "" {
-    server_addr = "nats://nats.mesagisto.org:4222".to_string();
+  let server_addr = if line.to_lowercase() == "" {
+    "nats://nats.mesagisto.org:4222".to_string()
   } else {
-    server_addr = line.trim().to_string();
-  }
+    line.trim().to_string()
+  };
   MesagistoConfig::builder()
     .name("diagnose")
     .cipher_key(cipher_key)
@@ -79,10 +78,9 @@ async fn run() -> anyhow::Result<()> {
     username: Some("mesagisto-diagnose".into()),
     nick: None,
   };
-  let mut chain = Vec::<MessageType>::new();
-  chain.push(MessageType::Text {
+  let chain = vec![MessageType::Text {
     content: "诊断工具已连接到该频道".to_string(),
-  });
+  }];
   let message = message::Message {
     profile,
     id: 0i64.to_be_bytes().to_vec(),
@@ -99,10 +97,9 @@ async fn run() -> anyhow::Result<()> {
       username: Some("mesagisto-diagnose".into()),
       nick: None,
     };
-    let mut chain = Vec::<MessageType>::new();
-    chain.push(MessageType::Text {
+    let chain = vec![MessageType::Text {
       content: line.to_string(),
-    });
+    }];
     let message = message::Message {
       profile,
       id: 0i64.to_be_bytes().to_vec(),
