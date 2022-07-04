@@ -120,7 +120,7 @@ async fn next_line(buf: &mut String) -> tokio::io::Result<usize> {
   Ok(res)
 }
 pub async fn server_msg_handler(
-  message: nats::asynk::Message,
+  message: nats::Message,
   _: ArcStr,
 ) -> anyhow::Result<()> {
   let packet = Packet::from_cbor(&message.data);
