@@ -41,9 +41,13 @@ async fn run() -> anyhow::Result<()> {
   info!("注: 有默认项时可按下Enter使用默认项.");
   let mut line = String::new();
 
-  info!("请输入加密密钥");
+  info!("请输入加密密钥,默认 test");
   next_line(&mut line).await?;
-  let cipher_key = line.to_string();
+  let cipher_key = if line.to_lowercase() == "" {
+    "test".to_string()
+  } else {
+    line.trim().to_string()
+  };
   info!("请输入服务器地址, 默认 nats://nats.mesagisto.org:4222");
 
   next_line(&mut line).await?;
@@ -60,11 +64,15 @@ async fn run() -> anyhow::Result<()> {
     .photo_url_resolver(|_| async { anyhow::Result::Ok(ArcStr::new()) }.boxed())
     .build()
     .apply()
-    .await;
+    .await?;
   info!("信使诊断工具启动完成");
-  info!("请输入频道地址");
+  info!("请输入频道地址, 默认 test");
   next_line(&mut line).await?;
-  let channel_addr = ArcStr::from(line.clone());
+  let channel_addr:ArcStr = if line.to_lowercase() == "" {
+    "test".into()
+  } else {
+    line.trim().into()
+  };
   let channel_addr_clone = channel_addr.clone();
   tokio::task::spawn(async move {
     SERVER
@@ -123,11 +131,10 @@ pub async fn server_msg_handler(
   message: nats::Message,
   _: ArcStr,
 ) -> anyhow::Result<()> {
-  let packet = Packet::from_cbor(&message.data);
+  let packet = Packet::from_cbor(&message.payload);
   let packet = match packet {
     Ok(v) => v,
     Err(_e) => {
-      //todo logging
       tracing::warn!("未知的数据包类型，请更新本消息源，若已是最新请等待适配");
       return Ok(());
     }
