@@ -21,6 +21,11 @@ async fn main() -> Result<()> {
       .theme(color_eyre::config::Theme::new())
       .install()?;
   }
+  use sys_locale::get_locale;
+  let locale = get_locale()
+    .unwrap_or_else(|| String::from("en-US"))
+    .replace('_', "-");
+  rust_i18n::set_locale(&locale);
   std::env::set_var("RUST_BACKTRACE", "full");
   tracing_subscriber::registry()
     .with(
