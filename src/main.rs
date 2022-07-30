@@ -10,9 +10,17 @@ use mesagisto_client::{EitherExt, MesagistoConfig};
 use tokio::io::{BufReader, AsyncBufReadExt};
 use tracing::{info, Level};
 use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt};
+use color_eyre::eyre::Result;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
+  if cfg!(feature = "color") {
+    color_eyre::install()?;
+  } else {
+    color_eyre::config::HookBuilder::new()
+      .theme(color_eyre::config::Theme::new())
+      .install()?;
+  }
   std::env::set_var("RUST_BACKTRACE", "full");
   tracing_subscriber::registry()
     .with(
@@ -34,9 +42,10 @@ async fn main() {
     )
     .init();
   run().await.unwrap();
+  Ok(())
 }
 
-async fn run() -> anyhow::Result<()> {
+async fn run() -> Result<()> {
   info!("信使诊断工具启动中...");
   info!("注: 有默认项时可按下Enter使用默认项.");
   let mut line = String::new();
@@ -61,7 +70,7 @@ async fn run() -> anyhow::Result<()> {
     .cipher_key(cipher_key)
     .proxy(None)
     .nats_address(server_addr)
-    .photo_url_resolver(|_| async { anyhow::Result::Ok(ArcStr::new()) }.boxed())
+    .photo_url_resolver(|_| async { Result::Ok(ArcStr::new()) }.boxed())
     .build()
     .apply()
     .await?;
@@ -130,7 +139,7 @@ async fn next_line(buf: &mut String) -> tokio::io::Result<usize> {
 pub async fn server_msg_handler(
   message: nats::Message,
   _: ArcStr,
-) -> anyhow::Result<()> {
+) -> Result<()> {
   let packet = Packet::from_cbor(&message.payload);
   let packet = match packet {
     Ok(v) => v,
