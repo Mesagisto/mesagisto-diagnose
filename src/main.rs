@@ -1,16 +1,21 @@
 #![allow(incomplete_features)]
-#![feature(backtrace, capture_disjoint_fields)]
+#![feature(capture_disjoint_fields)]
 
+use std::ops::ControlFlow;
 use arcstr::ArcStr;
+use dashmap::DashMap;
 use futures_util::FutureExt;
 use mesagisto_client::data::message::{MessageType, Profile};
 use mesagisto_client::data::{message, Packet};
 use mesagisto_client::server::SERVER;
-use mesagisto_client::{EitherExt, MesagistoConfig};
+use mesagisto_client::{EitherExt, MesagistoConfig, MesagistoConfigBuilder};
 use tokio::io::{BufReader, AsyncBufReadExt};
 use tracing::{info, Level};
 use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt};
 use color_eyre::eyre::Result;
+
+#[macro_use]
+extern crate tracing;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -50,6 +55,19 @@ async fn main() -> Result<()> {
   Ok(())
 }
 
+async fn packet_handler(pkt: Packet) -> Result<ControlFlow<Packet>>{
+  debug!("recv msg pkt from {:#?}", pkt.room_id);
+  match pkt.decrypt()? {
+    either::Either::Left(message) => {
+      debug!("recv msg pkt {:#?}", message);
+    },
+    either::Either::Right(event) => {
+      debug!("recv event pkt {:#?}", event);
+    },
+  }
+  Ok(ControlFlow::Continue(()))
+}
+
 async fn run() -> Result<()> {
   info!("信使诊断工具启动中...");
   info!("注: 有默认项时可按下Enter使用默认项.");
@@ -62,39 +80,35 @@ async fn run() -> Result<()> {
   } else {
     line.trim().to_string()
   };
-  info!("请输入服务器地址, 默认 nats://nats.mesagisto.org:4222");
+  info!("请输入服务器地址, 默认 msgist://center.itsusinn.site:6996");
 
   next_line(&mut line).await?;
   let server_addr = if line.to_lowercase() == "" {
-    "nats://nats.mesagisto.org:4222".to_string()
+    "msgist://center.itsusinn.site:6996".to_string()
   } else {
     line.trim().to_string()
   };
-  MesagistoConfig::builder()
+  let remotes = DashMap::new();
+  remotes.insert(arcstr::literal!("mesagisto"), server_addr.into());
+  MesagistoConfigBuilder::default()
     .name("diagnose")
     .cipher_key(cipher_key)
     .proxy(None)
-    .nats_address(server_addr)
-    .photo_url_resolver(|_| async { Result::Ok(ArcStr::new()) }.boxed())
-    .build()
+    .local_address("0.0.0.0:0")
+    .remote_address(remotes)
+    .build()?
     .apply()
     .await?;
+  MesagistoConfig::packet_handler(|pkt| async { packet_handler(pkt).await }.boxed());
   info!("信使诊断工具启动完成");
-  info!("请输入频道地址, 默认 test");
+  info!("请输入Room地址, 默认 test");
   next_line(&mut line).await?;
-  let channel_addr:ArcStr = if line.to_lowercase() == "" {
+  let room_address:ArcStr = if line.to_lowercase() == "" {
     "test".into()
   } else {
     line.trim().into()
   };
-  let channel_addr_clone = channel_addr.clone();
-  tokio::task::spawn(async move {
-    SERVER
-      .recv("".into(), &channel_addr_clone, server_msg_handler)
-      .await
-      .unwrap()
-  });
-
+  let room_id = SERVER.room_id(room_address);
   let profile = Profile {
     id: 0i64.to_be_bytes().into(),
     username: Some("mesagisto-diagnose".into()),
@@ -109,8 +123,10 @@ async fn run() -> Result<()> {
     chain,
     reply: None,
   };
-  let packet = Packet::from(message.tl())?;
-  SERVER.send(&"".into(), &channel_addr, packet, None).await?;
+  let packet = Packet::new(room_id.clone(),message.tl())?;
+  SERVER.send(packet,&arcstr::literal!("mesagisto")).await?;
+  let packet = Packet::new_sub(room_id.clone());
+  SERVER.send(packet,&arcstr::literal!("mesagisto")).await?;
 
   loop {
     next_line(&mut line).await?;
@@ -128,9 +144,9 @@ async fn run() -> Result<()> {
       chain,
       reply: None,
     };
-    let packet = Packet::from(message.tl())?;
+    let packet = Packet::new(room_id.clone(), message.tl())?;
     info!("发送消息: {}", line);
-    SERVER.send(&"".into(), &channel_addr, packet, None).await?;
+    SERVER.send(packet,&arcstr::literal!("mesagisto")).await?;
   }
 }
 
@@ -140,28 +156,4 @@ async fn next_line(buf: &mut String) -> tokio::io::Result<usize> {
   let res = stdin.read_line(buf).await?;
   buf.remove(buf.len() - 1);
   Ok(res)
-}
-pub async fn server_msg_handler(
-  message: nats::Message,
-  _: ArcStr,
-) -> Result<()> {
-  let packet = Packet::from_cbor(&message.payload);
-  let packet = match packet {
-    Ok(v) => v,
-    Err(_e) => {
-      tracing::warn!("未知的数据包类型，请更新本消息源，若已是最新请等待适配");
-      return Ok(());
-    }
-  };
-  match packet {
-    either::Left(msg) => {
-      info!("收到消息：");
-      println!("{}", serde_json::to_string_pretty(&msg).unwrap());
-    }
-    either::Right(event) => {
-      info!("收到事件");
-      println!("{:?}", serde_json::to_string_pretty(&event).unwrap());
-    }
-  }
-  Ok(())
 }
