@@ -1,6 +1,3 @@
-#![allow(incomplete_features)]
-#![feature(capture_disjoint_fields)]
-
 use std::ops::ControlFlow;
 use arcstr::ArcStr;
 use dashmap::DashMap;
@@ -26,11 +23,7 @@ async fn main() -> Result<()> {
       .theme(color_eyre::config::Theme::new())
       .install()?;
   }
-  use sys_locale::get_locale;
-  let locale = get_locale()
-    .unwrap_or_else(|| String::from("en-US"))
-    .replace('_', "-");
-  rust_i18n::set_locale(&locale);
+
   std::env::set_var("RUST_BACKTRACE", "full");
   tracing_subscriber::registry()
     .with(
@@ -80,11 +73,11 @@ async fn run() -> Result<()> {
   } else {
     line.trim().to_string()
   };
-  info!("请输入服务器地址, 默认 msgist://center.itsusinn.site:6996");
+  info!("请输入服务器地址, 默认 wss://center.mesagisto.org");
 
   next_line(&mut line).await?;
   let server_addr = if line.to_lowercase() == "" {
-    "msgist://center.itsusinn.site:6996".to_string()
+    "wss://center.mesagisto.org".to_string()
   } else {
     line.trim().to_string()
   };
@@ -94,8 +87,10 @@ async fn run() -> Result<()> {
     .name("diagnose")
     .cipher_key(cipher_key)
     .proxy(None)
-    .local_address("0.0.0.0:0")
     .remote_address(remotes)
+    .skip_verify(true)
+    .custom_cert(None)
+    .same_side_deliver(false)
     .build()?
     .apply()
     .await?;
@@ -122,6 +117,7 @@ async fn run() -> Result<()> {
     id: 0i64.to_be_bytes().to_vec(),
     chain,
     reply: None,
+    from: 0i32.to_be_bytes().to_vec()
   };
   let packet = Packet::new(room_id.clone(),message.tl())?;
   SERVER.send(packet,&arcstr::literal!("mesagisto")).await?;
@@ -143,6 +139,7 @@ async fn run() -> Result<()> {
       id: 0i64.to_be_bytes().to_vec(),
       chain,
       reply: None,
+      from: 0i32.to_be_bytes().to_vec()
     };
     let packet = Packet::new(room_id.clone(), message.tl())?;
     info!("发送消息: {}", line);
