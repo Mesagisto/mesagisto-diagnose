@@ -73,11 +73,11 @@ async fn run() -> Result<()> {
   } else {
     line.trim().to_string()
   };
-  info!("请输入服务器地址, 默认 wss://mesagisto.itsusinn.site");
+  info!("请输入服务器地址, 默认 wss://mesagisto.itsusinn.site/");
 
   next_line(&mut line).await?;
   let server_addr = if line.to_lowercase() == "" {
-    "wss://mesagisto.itsusinn.site".to_string()
+    "wss://mesagisto.itsusinn.site/".to_string()
   } else {
     line.trim().to_string()
   };
