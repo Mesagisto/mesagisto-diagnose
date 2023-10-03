@@ -31,7 +31,9 @@ async fn main() -> Result<()> {
         .with_target(true)
         .with_timer(tracing_subscriber::fmt::time::OffsetTime::new(
           // use local time
-          time::UtcOffset::__from_hms_unchecked(8, 0, 0),
+          unsafe {
+            time::UtcOffset::__from_hms_unchecked(8, 0, 0)
+          },
           time::macros::format_description!(
             "[year repr:last_two]-[month]-[day] [hour]:[minute]:[second]"
           ),
